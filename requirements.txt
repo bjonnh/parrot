@@ -1,0 +1,7 @@
+audioflux
+numpy
+pandas
+scipy
+librosa
+sounddevice
+PyQt5
