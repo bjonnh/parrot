@@ -1,78 +1,136 @@
-import audioflux as af
-import librosa
-import numpy as np
-import matplotlib.transforms as mpt
-from audioflux.type import SpectralFilterBankScaleType
+import glob
+import sys
 
-from container import ParrotContainer
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QAbstractItemView, QApplication, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, \
+    QPushButton, \
+    QTableView, QVBoxLayout, QWidget
 
-print("Loading example")
-#librosa.ex(
-example_name = "db.mp3"
-#example_name = "pb.mp3"
-#example_name = "mb.mp3"
-audio_arr, sr = librosa.load(example_name)
+from model import ParrotContainer
+from sound_manager import SoundManager
+from ui.device_selection import DeviceSelectionDialog
+from ui.fragment_table_model import FragmentTableModel
+from ui.parrot_fragment_ui import ParrotFragmentUI
 
 
-print("Spectrogram")
-# Create BFT object and extract mel spectrogram
-bft_obj = af.BFT(num=128, radix2_exp=12, samplate=int(sr),
-                 scale_type=SpectralFilterBankScaleType.MEL)
+class CreatorWindow(QDialog):
+    def __init__(self, sound_manager: SoundManager):
+        super().__init__()
+        self.sound_manager = sound_manager
+        self.setGeometry(0, 0, 1024, 768)
+        self.setWindowTitle("Creator")
 
-spec_arr = bft_obj.bft(audio_arr)
-spec_arr = np.abs(spec_arr)
+        self.btn_file = QPushButton("Choose audio file")
+        self.file_name = QLabel("No file chosen")
+        self.name = QLineEdit("Name")
+        self.btn_process = QPushButton("Process")
+        self.okButton = QPushButton("Quit")
 
-print("Beat finding")
-# Beat finding
-tempo, beats = librosa.beat.beat_track(y=audio_arr, sr=sr, hop_length=512)
-beat_times = librosa.frames_to_time(beats, sr=sr, hop_length=512)
-cqt = np.abs(librosa.cqt(audio_arr, sr=sr, hop_length=512))
-subseg = librosa.segment.subsegment(cqt, beats, n_segments=2)
-subseg_t = librosa.frames_to_time(subseg, sr=sr, hop_length=512)
+        self.btn_file.clicked.connect(self.get_file)
+        self.btn_process.clicked.connect(self.process)
+        self.okButton.clicked.connect(self.accept)
+        self.layout = QVBoxLayout()
+        self.layout.addWidget(self.btn_file)
+        self.layout.addWidget(self.file_name)
+        self.layout.addWidget(self.name)
+        self.layout.addWidget(self.btn_process)
+        self.layout.addWidget(self.okButton)
+        self.setLayout(self.layout)
 
-print("Chroma CQT")
-# Split
-chroma = librosa.feature.chroma_cqt(y=audio_arr, sr=sr)
-bounds = librosa.segment.agglomerative(chroma, 800)
-bound_times = librosa.frames_to_time(bounds, sr=sr)
+    def get_file(self):
+        file_dialog = QFileDialog(self)
+        # the name filters must be a list
+        file_dialog.setNameFilters(["MP3 files (*.mp3)", "WAV files (*.wav)"])
+        file_dialog.selectNameFilter("Supported audio files (*.mp3 *.wav)")
+        # show the dialog
+        if file_dialog.exec_():
+            filenames = file_dialog.selectedFiles()
+            if len(filenames) == 1:
+                self.file_name.setText(filenames[0])
 
-print("Writing splits")
-pc = ParrotContainer("test", sr)
-pc.clear()
-for bound in range(0, len(bound_times)-1):
-    b = int(bound_times[bound]*sr)
-    e = int(bound_times[bound+1]*sr)
-    text = f"split_{b:016d}_{e:016d}"
-    pc.add_fragment(audio_arr[b:e], text)
+    def process(self):
+        ParrotContainer(self.name.text(), self.file_name.text()).fragment()
 
-pc.write_fragments()
-print("Generate graph")
 
-# Display spectrogram
+class SelectorWindow(QDialog):
+    def __init__(self, sound_manager: SoundManager):
+        super().__init__()
+        self.root = "output/mb/"
+        self.sound_manager = sound_manager
+        self.setGeometry(0, 0, 1024, 768)
+        self.data = []
+        self.selected_value = None
+        self.setWindowTitle("Selector")
 
-import matplotlib.pyplot as plt
-from audioflux.display import fill_spec
+        self.table = QTableView()
 
-audio_len = audio_arr.shape[-1]
-# set plot width to 1024px and height to 768px
-plt.rcParams["figure.figsize"] = (10.24, 7.68)
-fig, ax = plt.subplots()
+        self.model = FragmentTableModel([ParrotFragmentUI()])
+        self.table.setModel(self.model)
+        self.table.setSortingEnabled(True)
 
-img = fill_spec(spec_arr, axes=ax,
-                x_coords=bft_obj.x_coords(audio_len),
-                y_coords=bft_obj.y_coords(),
-                x_axis='time', y_axis='log',
-                title='Mel Spectrogram')
-trans = mpt.blended_transform_factory(
-    ax.transData, ax.transAxes)
-ax.vlines(bound_times, 0, 1, color='linen', linestyle='--',
-          linewidth=2, alpha=0.9, label='Segment boundaries',
-          transform=trans)
-lims = ax.get_ylim()
-ax.vlines(beat_times, lims[0], lims[1], color='lime', alpha=0.9,
-           linewidth=2, label='Beats')
-ax.vlines(subseg_t, lims[0], lims[1], color='linen', linestyle='--',
-           linewidth=1.5, alpha=0.5, label='Sub-beats')
-ax.legend()
-fig.colorbar(img, ax=ax)
-plt.show()
+        self.table.selectionModel().selectionChanged.connect(self.play)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.btn_quit = QPushButton("Quit")
+
+        self.btn_quit.clicked.connect(self.accept)
+
+        self.layout = QVBoxLayout()
+        self.hlayoutw = QWidget()
+        self.hlayout = QHBoxLayout(self.hlayoutw)
+        self.layout.addWidget(self.hlayoutw)
+        self.hlayout.addWidget(self.table)
+        self.layout.addWidget(self.btn_quit)
+        self.setLayout(self.layout)
+
+    def show(self):
+        self.sound_manager.clear_samples()
+        for i in list(glob.glob(f"{self.root}/*.json")):
+            self.sound_manager.add_sample(i)
+        self.model.update_all_data(self.sound_manager)
+        super().show()
+
+    def play(self):
+        selected_rows = self.table.selectionModel().selectedRows()
+        if len(selected_rows) == 1:
+            file_name = self.table.model().data(selected_rows[0], Qt.DisplayRole)
+            self.sound_manager.play(f"{self.root}/{file_name}")
+
+
+def window(sound_manager: SoundManager):
+    app = QApplication(sys.argv)
+    w = QWidget()
+
+    layout = QHBoxLayout(w)
+
+    b = QLabel()
+    b.setText("Parrot")
+
+    btn_setup_audio = QPushButton("Setup audio device")
+
+    btn_creator = QPushButton("Creator")
+
+    btn_selector = QPushButton("Selector")
+
+    btn_quit = QPushButton("Quit")
+
+    device_dialog = DeviceSelectionDialog(sound_manager)
+    creator_window = CreatorWindow(sound_manager)
+    selector_window = SelectorWindow(sound_manager)
+
+    btn_creator.clicked.connect(creator_window.show)
+    btn_setup_audio.clicked.connect(device_dialog.show)
+    btn_selector.clicked.connect(selector_window.show)
+
+    layout.addWidget(b)
+    layout.addWidget(btn_setup_audio)
+    layout.addWidget(btn_creator)
+    layout.addWidget(btn_selector)
+    layout.addWidget(btn_quit)
+
+    w.setWindowTitle("Parrot")
+    w.show()
+    sys.exit(app.exec_())
+
+
+if __name__ == '__main__':
+    window(SoundManager())
