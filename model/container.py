@@ -30,7 +30,7 @@ class ParrotContainer:
         self.container_output_dir = f"output/{self.name}/"
 
     def add_fragment(self, audio_arr, name):
-        fragment = ParrotFragment(self.fragment_ids, audio_arr / np.max(audio_arr), name, self.sr)
+        fragment = ParrotFragment(self.fragment_ids, audio_arr / np.max(audio_arr), name, self.sr, self.name)
         self.fragments.append(fragment)
         self.fragment_ids += 1
         fragment.calculate_parameters()

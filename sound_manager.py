@@ -28,7 +28,11 @@ class SoundManager:
     def clear_samples(self):
         self.samples = {}
 
-    def add_sample(self, sample_info) -> ParrotFragmentUI:
+    def add_sample(self, root: str, sample_info: str) -> ParrotFragmentUI:
         si = ParrotFragmentUI.from_json(sample_info)
         self.samples[si.uid] = si
+        si.root = root
         return si
+
+    def stop(self):
+        sd.stop()

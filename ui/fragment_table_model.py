@@ -29,8 +29,8 @@ class FragmentTableModel(QAbstractTableModel):
         # the length (only works if all rows are an equal length)
         return len(self._headers)
 
-    def update_all_data(self, sound_manager):
-        self._data = list(sound_manager.samples.values())
+    def append(self, sound_manager):
+        self._data += list(sound_manager.samples.values())
         topLeft = self.index(0, 0)
         bottomRight = self.index(len(self._data), len(self._headers))
         self.dataChanged.emit(topLeft, bottomRight)
@@ -39,7 +39,7 @@ class FragmentTableModel(QAbstractTableModel):
     def sort(self, ncol, order):
         """Sort table by given column number.
         """
-        if ncol == 3:
+        if ncol == 4:
             return
 
         self.layoutAboutToBeChanged.emit()
@@ -48,3 +48,6 @@ class FragmentTableModel(QAbstractTableModel):
         if order == Qt.DescendingOrder:
             self._data.reverse()
         self.layoutChanged.emit()
+
+    def getRowData(self, row):
+        return self._data[row]
