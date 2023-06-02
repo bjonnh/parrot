@@ -68,6 +68,7 @@ class CreatorWindow(QDialog):
     def process(self):
         pc: ParrotContainer = ParrotContainer(self.name.text(), self.file_name.text())
         pc.fragment(segments=int(self.segments_number.value()))
+
         if self.cbx_autoload.isChecked():
             self.sound_manager.clear_samples()
-            self.sound_manager.load_from_container(pc.container_output_dir, pc)
+            self.sound_manager.load_from_container(pc.container_output_dir, f"{pc.container_output_dir}/container.json")

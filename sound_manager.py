@@ -41,7 +41,8 @@ class SoundManager:
         self.samples = {}
         self.event_system.cleared.emit()
 
-    def load_from_container(self, root: str, pc: ParrotContainer) -> None:
+    def load_from_container(self, root: str, file_name: str) -> None:
+        pc = ParrotContainer.from_json_file(file_name)
         for pf in pc.fragments:
             si = ParrotFragmentUI(pc, pf)
             self.samples[si.uid] = si

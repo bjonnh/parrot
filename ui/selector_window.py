@@ -68,9 +68,7 @@ class SelectorWindow(QDialog):
                 file_name = filenames[0]
                 self.root = os.path.dirname(file_name)
 
-                pc = ParrotContainer.from_json_file(file_name)
-                self.sound_manager.load_from_container(self.root, pc)
-                self.update()
+                self.sound_manager.load_from_container(self.root, file_name)
 
     def clear(self) -> None:
         self.sound_manager.clear_samples()
