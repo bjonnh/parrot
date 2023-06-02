@@ -1,3 +1,4 @@
+from model import ParrotContainer
 from model.fragment import ParrotFragment
 
 
@@ -5,13 +6,10 @@ class ParrotFragmentUI:
     headers = ["container", "file_name", "bandwidth_average", "centroid_average", "spectral_contrast",
                "spectral_flatness", "samples", "sample-rate"]
 
-    def __init__(self, parrot_fragment: ParrotFragment = None):
+    def __init__(self, parrot_container: ParrotContainer = None, parrot_fragment: ParrotFragment = None):
+        self.parrot_container: ParrotContainer = parrot_container
         self.parrot_fragment: ParrotFragment = parrot_fragment
         self.root: str | None = None
-
-    @staticmethod
-    def from_json(sample_info: str) -> 'ParrotFragmentUI':
-        return ParrotFragmentUI(ParrotFragment.from_json(sample_info))
 
     @property
     def uid(self) -> str:

@@ -1,7 +1,5 @@
-import glob
 import os
 
-from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QAbstractItemView, QDialog, QFileDialog, QHBoxLayout, QPushButton, QTableView, QVBoxLayout, \
     QWidget
 
@@ -30,12 +28,17 @@ class SelectorWindow(QDialog):
         self.table.selectionModel().selectionChanged.connect(self.play)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.btn_load = QPushButton("Load container")
+        self.btn_stop = QPushButton("Stop")
         self.btn_clear = QPushButton("Clear")
         self.btn_quit = QPushButton("Quit")
 
         self.btn_load.clicked.connect(self.load)
         self.btn_clear.clicked.connect(self.clear)
         self.btn_quit.clicked.connect(self.accept)
+        self.btn_stop.clicked.connect(self.sound_manager.stop)
+
+        self.sound_manager.event_system.cleared.connect(self.post_clear)
+        self.sound_manager.event_system.loaded.connect(self.post_load)
 
         self.layout = QVBoxLayout()
         self.hlayoutw = QWidget()
@@ -43,6 +46,7 @@ class SelectorWindow(QDialog):
         self.layout.addWidget(self.hlayoutw)
         self.hlayout.addWidget(self.table)
         self.layout.addWidget(self.btn_load)
+        self.layout.addWidget(self.btn_stop)
         self.layout.addWidget(self.btn_clear)
         self.layout.addWidget(self.btn_quit)
         self.setLayout(self.layout)
@@ -69,19 +73,21 @@ class SelectorWindow(QDialog):
                 self.update()
 
     def clear(self) -> None:
-        self.sound_manager.stop()
-        self.table.selectionModel().clear()
-        self.model.clear()
         self.sound_manager.clear_samples()
 
+    def post_clear(self) -> None:
+        self.table.selectionModel().clear()
+        self.model.clear()
 
     def update(self) -> None:
         self.model.append(self.sound_manager)
+
+    def post_load(self) -> None:
+        self.update()
 
     def play(self):
         selected_rows = self.table.selectionModel().selectedRows()
         if len(selected_rows) == 1:
             row_index = selected_rows[0].row()
             data: ParrotFragmentUI = self.table.model().getRowData(row_index)
-            pf: ParrotFragment = data.parrot_fragment
-            self.sound_manager.play(f"{data.root}/{pf.file_name}")
+            self.sound_manager.play_from_container(data.parrot_container, data.parrot_fragment)
