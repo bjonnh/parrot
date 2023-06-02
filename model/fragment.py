@@ -1,5 +1,3 @@
-import json
-
 import librosa
 import numpy as np
 
@@ -10,20 +8,18 @@ class ParrotFragment:
         self.parameters = {"name": name, "sample_rate": sr, "uid": uid, "container": container}
 
     @staticmethod
-    def from_json(sample_info):
-        with open(sample_info, "r") as f:
-            i = json.load(f)
-
-            si = ParrotFragment(i["uid"], None, i["name"], i["sample_rate"], i["container"])
-            si.parameters["samples"] = i["samples"]
-            si.parameters["loaded"] = True
-            si.parameters["name"] = i["name"]
-            si.parameters["file_name"] = i["file_name"]
-            si.parameters["bandwidth_average"] = i["bandwidth_average"]
-            si.parameters["spectral_contrast"] = i["spectral_contrast"]
-            si.parameters["spectral_flatness"] = i["spectral_flatness"]
-            si.parameters["centroid_average"] = i["centroid_average"]
-            return si
+    def from_parameters(parameters):
+        si = ParrotFragment(parameters["uid"], None, parameters["name"], parameters["sample_rate"],
+                            parameters["container"])
+        si.parameters["samples"] = parameters["samples"]
+        si.parameters["loaded"] = True
+        si.parameters["name"] = parameters["name"]
+        si.parameters["file_name"] = parameters["file_name"]
+        si.parameters["bandwidth_average"] = parameters["bandwidth_average"]
+        si.parameters["spectral_contrast"] = parameters["spectral_contrast"]
+        si.parameters["spectral_flatness"] = parameters["spectral_flatness"]
+        si.parameters["centroid_average"] = parameters["centroid_average"]
+        return si
 
     @property
     def container(self):
@@ -79,6 +75,3 @@ class ParrotFragment:
             return float(np.average(librosa.feature.spectral_flatness(y=self.data)))
         except librosa.util.exceptions.ParameterError:
             return 0
-
-    def as_json(self):
-        return json.dumps(self.parameters)

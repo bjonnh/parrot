@@ -51,3 +51,7 @@ class FragmentTableModel(QAbstractTableModel):
 
     def getRowData(self, row):
         return self._data[row]
+
+    def clear(self):
+        self._data.clear()
+        self.layoutChanged.emit()

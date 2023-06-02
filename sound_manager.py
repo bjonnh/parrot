@@ -1,6 +1,7 @@
 import sounddevice as sd
 import soundfile as sf
 
+from model import ParrotContainer
 from ui.parrot_fragment_ui import ParrotFragmentUI
 
 
@@ -25,14 +26,14 @@ class SoundManager:
         data, fs = sf.read(file_name, dtype='float32')
         sd.play(data, fs, device=self.device, loop=True)
 
+    def stop(self) -> None:
+        sd.stop()
+
     def clear_samples(self):
         self.samples = {}
 
-    def add_sample(self, root: str, sample_info: str) -> ParrotFragmentUI:
-        si = ParrotFragmentUI.from_json(sample_info)
-        self.samples[si.uid] = si
-        si.root = root
-        return si
-
-    def stop(self):
-        sd.stop()
+    def load_from_container(self, root: str, pc: ParrotContainer) -> None:
+        for pf in pc.fragments:
+            si = ParrotFragmentUI(pf)
+            self.samples[si.uid] = si
+            si.root = root

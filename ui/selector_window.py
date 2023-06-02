@@ -1,10 +1,11 @@
 import glob
+import os
 
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QAbstractItemView, QDialog, QFileDialog, QHBoxLayout, QPushButton, QTableView, QVBoxLayout, \
     QWidget
 
-from model import ParrotFragment
+from model import ParrotContainer, ParrotFragment
 from sound_manager import SoundManager
 from ui.fragment_table_model import FragmentTableModel
 from ui.parrot_fragment_ui import ParrotFragmentUI
@@ -55,21 +56,24 @@ class SelectorWindow(QDialog):
 
     def load(self) -> None:
         file_dialog = QFileDialog(self)
-        file_dialog.setFileMode(QFileDialog.DirectoryOnly)
-
+        file_dialog.setNameFilters(["Container file (container.json)", "All files (*)"])
+        file_dialog.selectNameFilter("Container file (container.json)")
         if file_dialog.exec_():
             filenames = file_dialog.selectedFiles()
             if len(filenames) == 1:
-                self.root = filenames[0]
-                for i in list(glob.glob(f"{self.root}/*.json")):
-                    self.sound_manager.add_sample(self.root, i)
+                file_name = filenames[0]
+                self.root = os.path.dirname(file_name)
+
+                pc = ParrotContainer.from_json_file(file_name)
+                self.sound_manager.load_from_container(self.root, pc)
                 self.update()
 
     def clear(self) -> None:
-        self.sound_manager.clear_samples()
         self.sound_manager.stop()
         self.table.selectionModel().clear()
-        self.update()
+        self.model.clear()
+        self.sound_manager.clear_samples()
+
 
     def update(self) -> None:
         self.model.append(self.sound_manager)
