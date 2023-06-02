@@ -1,4 +1,6 @@
-from PyQt5.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSlider, \
+    QVBoxLayout
 
 from model import ParrotContainer
 from sound_manager import SoundManager
@@ -14,6 +16,19 @@ class CreatorWindow(QDialog):
         self.btn_file = QPushButton("Choose audio file")
         self.file_name = QLabel("No file chosen")
         self.name = QLineEdit("Name")
+
+        self.hbox_segments = QHBoxLayout()
+        self.segments_label = QLabel("Number of segments")
+        self.segments_number = QSlider(Qt.Horizontal)
+        self.segments_number.setMinimum(10)
+        self.segments_number.setMaximum(2048)
+        self.segments_number.setValue(666)
+        self.segments_value = QLabel("666")
+        self.segments_number.valueChanged.connect(self.segments_value.setNum)
+        self.hbox_segments.addWidget(self.segments_label)
+        self.hbox_segments.addWidget(self.segments_number)
+        self.hbox_segments.addWidget(self.segments_value)
+
 
         self.autoload_label = QLabel("Autoload in selector (clears existing)")
         self.cbx_autoload = QCheckBox("Autoload")
@@ -33,6 +48,7 @@ class CreatorWindow(QDialog):
         self.layout.addWidget(self.btn_file)
         self.layout.addWidget(self.file_name)
         self.layout.addWidget(self.name)
+        self.layout.addLayout(self.hbox_segments)
         self.layout.addLayout(self.hbox_autoload)
         self.layout.addWidget(self.btn_process)
         self.layout.addWidget(self.okButton)
@@ -51,7 +67,7 @@ class CreatorWindow(QDialog):
 
     def process(self):
         pc: ParrotContainer = ParrotContainer(self.name.text(), self.file_name.text())
-        pc.fragment()
+        pc.fragment(segments=int(self.segments_number.value()))
         if self.cbx_autoload.isChecked():
             self.sound_manager.clear_samples()
             self.sound_manager.load_from_container(pc.container_output_dir, pc)

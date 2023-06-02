@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 
 import librosa
 import numpy as np
@@ -53,6 +54,9 @@ class ParrotContainer:
             "processing_parameters": {}
         }
 
+        if self.container_output_dir != "/":
+            shutil.rmtree(f"{self.container_output_dir}", ignore_errors=True)
+
         for f in self.fragments:
             fragment_file_name = f.parameters["file_name"]
             self.write_audio(f.data, fragment_file_name)
@@ -65,7 +69,7 @@ class ParrotContainer:
         os.makedirs(self.container_output_dir, exist_ok=True)
         sf.write(f"{self.container_output_dir}/{split_file_name}.wav", audio_arr, self.sr)
 
-    def fragment(self):
+    def fragment(self, segments=800):
         self.audio_arr, self.sr = librosa.load(self.file_name)
         # Create BFT object and extract mel spectrogram
         # self.bft_obj = af.BFT(num=128, radix2_exp=12, samplate=int(self.sr),
@@ -78,8 +82,17 @@ class ParrotContainer:
         # subseg = librosa.segment.subsegment(cqt, beats, n_segments=2)
         # self.subseg_t = librosa.frames_to_time(subseg, sr=self.sr, hop_length=512)
 
-        chroma = librosa.feature.chroma_cqt(y=self.audio_arr, sr=self.sr)
-        bounds = librosa.segment.agglomerative(chroma, 800)
+        chroma = librosa.feature.chroma_cqt(y=self.audio_arr,
+                                            sr=self.sr,
+                                            hop_length=512,
+                                            fmin=None,
+                                            norm=np.inf,
+                                            threshold=0.0,
+                                            tuning=None,
+                                            n_chroma=12,
+                                            n_octaves=7,
+                                            bins_per_octave=36)
+        bounds = librosa.segment.agglomerative(chroma, k=segments)
         self.bound_times = librosa.frames_to_time(bounds, sr=self.sr)
 
         for bound in range(0, len(self.bound_times) - 1):
