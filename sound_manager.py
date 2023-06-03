@@ -34,6 +34,7 @@ class SoundManager:
         sd.play(data, fs, device=self.device, loop=True)
 
     def stop(self) -> None:
+        print("Stopping")
         sd.stop()
 
     def clear_samples(self):
@@ -50,4 +51,5 @@ class SoundManager:
         self.event_system.loaded.emit()
 
     def play_from_container(self, parrot_container: ParrotContainer, parrot_fragment: ParrotFragment):
+        print("Playing")
         self.play(f"{parrot_container.container_output_dir}/{parrot_fragment.file_name}")

@@ -1,15 +1,18 @@
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSlider, \
+from PyQt5.QtWidgets import QButtonGroup, QCheckBox, QDialog, QFileDialog, QHBoxLayout, QLabel, QLineEdit, QPushButton, \
+    QRadioButton, QSlider, \
     QVBoxLayout
 
 from model import ParrotContainer
 from sound_manager import SoundManager
+from ui.canvas import Canvas
 
 
 class CreatorWindow(QDialog):
     def __init__(self, sound_manager: SoundManager):
         super().__init__()
-        self.sound_manager : SoundManager = sound_manager
+        self.pc: ParrotContainer = ParrotContainer()
+        self.sound_manager: SoundManager = sound_manager
         self.setGeometry(0, 0, 1024, 768)
         self.setWindowTitle("Creator")
 
@@ -29,6 +32,15 @@ class CreatorWindow(QDialog):
         self.hbox_segments.addWidget(self.segments_number)
         self.hbox_segments.addWidget(self.segments_value)
 
+        hbox_fragment_mode = QHBoxLayout()
+        fragment_mode = QButtonGroup()
+        self.beat = QRadioButton("Beat")
+        self.beat.setChecked(True)
+        fragment_mode.addButton(self.beat)
+        self.chroma = QRadioButton("Chroma")
+        fragment_mode.addButton(self.chroma)
+        hbox_fragment_mode.addWidget(self.beat)
+        hbox_fragment_mode.addWidget(self.chroma)
 
         self.autoload_label = QLabel("Autoload in selector (clears existing)")
         self.cbx_autoload = QCheckBox("Autoload")
@@ -44,15 +56,23 @@ class CreatorWindow(QDialog):
         self.btn_process.clicked.connect(self.process)
         self.okButton.clicked.connect(self.accept)
 
-        self.layout = QVBoxLayout()
-        self.layout.addWidget(self.btn_file)
-        self.layout.addWidget(self.file_name)
-        self.layout.addWidget(self.name)
-        self.layout.addLayout(self.hbox_segments)
-        self.layout.addLayout(self.hbox_autoload)
-        self.layout.addWidget(self.btn_process)
-        self.layout.addWidget(self.okButton)
-        self.setLayout(self.layout)
+        self.main_layout = QHBoxLayout()
+        self.layout_left = QVBoxLayout()
+        self.main_layout.addLayout(self.layout_left)
+        self.layout_left.addWidget(self.btn_file)
+        self.layout_left.addWidget(self.file_name)
+        self.layout_left.addWidget(self.name)
+        self.layout_left.addLayout(self.hbox_segments)
+        self.layout_left.addLayout(hbox_fragment_mode)
+        self.layout_left.addLayout(self.hbox_autoload)
+        self.layout_left.addWidget(self.btn_process)
+        self.layout_left.addWidget(self.okButton)
+        self.layout_right = QVBoxLayout()
+        self.canvas = Canvas()
+        self.canvas.event_system.segment_click.connect(self.play_sample_at_time)
+        self.layout_right.addLayout(self.canvas)
+        self.main_layout.addLayout(self.layout_right)
+        self.setLayout(self.main_layout)
 
     def get_file(self):
         file_dialog = QFileDialog(self)
@@ -66,9 +86,23 @@ class CreatorWindow(QDialog):
                 self.file_name.setText(filenames[0])
 
     def process(self):
-        pc: ParrotContainer = ParrotContainer(self.name.text(), self.file_name.text())
-        pc.fragment(segments=int(self.segments_number.value()))
+        self.pc: ParrotContainer = ParrotContainer(self.name.text(), self.file_name.text())
+        self.pc.fragment(segments=int(self.segments_number.value()),
+                         beat_mode=self.beat.isChecked())
 
         if self.cbx_autoload.isChecked():
             self.sound_manager.clear_samples()
-            self.sound_manager.load_from_container(pc.container_output_dir, f"{pc.container_output_dir}/container.json")
+            self.sound_manager.load_from_container(self.pc.container_output_dir,
+                                                   f"{self.pc.container_output_dir}/container.json")
+
+        self.pc.draw_plot_on_canvas(self.canvas)
+
+    def play_sample_at_time(self, time) -> None:
+        self.sound_manager.stop()
+        if time < 0:
+            return
+        for frag in self.pc.fragments:
+            end = frag.parameters["end"]
+            if time * self.pc.sr < end:
+                self.sound_manager.play_from_container(self.pc, frag)
+                break

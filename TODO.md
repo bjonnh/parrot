@@ -1,11 +1,10 @@
 === 0.0.0 ===
 
+- [ ] Display currently listened segment
 - [ ] Parameters for creator
 - [ ] Listen file in creator
 - [ ] Visualization for creator
 - [ ] Visualization for selector
-- [ ] Load multiple groups in selector
-- [ ] Performance creator
 - [ ] Progress bar creator
 
 === 0.0.1 ===

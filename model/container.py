@@ -3,16 +3,19 @@ import os
 import shutil
 
 import librosa
+import matplotlib.transforms as mpt
 import numpy as np
 import soundfile as sf
 
 from model.fragment import ParrotFragment
+from ui.canvas import Canvas
 
 CONTAINER_VERSION = "0.0.0"
 
 
 class ParrotContainer:
-    def __init__(self, name, file_name):
+    def __init__(self, name="", file_name=""):
+        self.tempo = None
         self.version = CONTAINER_VERSION
         self.bft_obj = None
         self.spec_arr = None
@@ -39,8 +42,8 @@ class ParrotContainer:
             pc.processing_parameters = data["processing_parameters"]
         return pc
 
-    def add_fragment(self, audio_arr, name):
-        fragment = ParrotFragment(self.fragment_ids, audio_arr / np.max(audio_arr), name, self.sr, self.name)
+    def add_fragment(self, audio, begin, end, name):
+        fragment = ParrotFragment(self.fragment_ids, audio, begin, end, name, self.sr, self.name)
         self.fragments.append(fragment)
         self.fragment_ids += 1
         fragment.calculate_parameters()
@@ -69,37 +72,39 @@ class ParrotContainer:
         os.makedirs(self.container_output_dir, exist_ok=True)
         sf.write(f"{self.container_output_dir}/{split_file_name}.wav", audio_arr, self.sr)
 
-    def fragment(self, segments=800):
+    def fragment(self, segments=800, beat_mode=True):
         self.audio_arr, self.sr = librosa.load(self.file_name)
         # Create BFT object and extract mel spectrogram
         # self.bft_obj = af.BFT(num=128, radix2_exp=12, samplate=int(self.sr),
         #                      scale_type=SpectralFilterBankScaleType.MEL)
 
+        self.chroma = librosa.feature.chroma_cqt(y=self.audio_arr,
+                                                 sr=self.sr,
+                                                 hop_length=512,
+                                                 fmin=None,
+                                                 norm=np.inf,
+                                                 threshold=0.0,
+                                                 tuning=None,
+                                                 n_chroma=12,
+                                                 n_octaves=7,
+                                                 bins_per_octave=36)
         # Beat finding
-        # tempo, beats = librosa.beat.beat_track(y=self.audio_arr, sr=self.sr, hop_length=512)
-        # self.beat_times = librosa.frames_to_time(beats, sr=self.sr, hop_length=512)
+        if beat_mode:
+            self.tempo, self.beats = librosa.beat.beat_track(y=self.audio_arr, sr=self.sr, hop_length=512)
+            self.bound_times = librosa.frames_to_time(self.beats, sr=self.sr, hop_length=512)
         # cqt = np.abs(librosa.cqt(self.audio_arr, sr=self.sr, hop_length=512))
         # subseg = librosa.segment.subsegment(cqt, beats, n_segments=2)
         # self.subseg_t = librosa.frames_to_time(subseg, sr=self.sr, hop_length=512)
+        else:
 
-        chroma = librosa.feature.chroma_cqt(y=self.audio_arr,
-                                            sr=self.sr,
-                                            hop_length=512,
-                                            fmin=None,
-                                            norm=np.inf,
-                                            threshold=0.0,
-                                            tuning=None,
-                                            n_chroma=12,
-                                            n_octaves=7,
-                                            bins_per_octave=36)
-        bounds = librosa.segment.agglomerative(chroma, k=segments)
-        self.bound_times = librosa.frames_to_time(bounds, sr=self.sr)
+            bounds = librosa.segment.agglomerative(self.chroma, k=segments)
+            self.bound_times = librosa.frames_to_time(bounds, sr=self.sr)
 
         for bound in range(0, len(self.bound_times) - 1):
             b = int(self.bound_times[bound] * self.sr)
             e = int(self.bound_times[bound + 1] * self.sr)
             text = f"split_{b:016d}_{e:016d}"
-            self.add_fragment(self.audio_arr[b:e], text)
+            self.add_fragment(self.audio_arr, b, e, text)
 
         self.write_fragments()
 
@@ -129,3 +134,19 @@ class ParrotContainer:
     #     ax.legend()
     #     fig.colorbar(img, ax=ax)
     #     plt.show()
+    def draw_plot_on_canvas(self, canvas: Canvas):
+        canvas.canvas.axes.clear()
+        ax = canvas.canvas.axes
+        trans = mpt.blended_transform_factory(ax.transData, ax.transAxes)
+
+        librosa.display.specshow(self.chroma, y_axis='chroma', x_axis='time', ax=ax)
+
+        ax.vlines(self.bound_times, 0, 1, color='linen', linestyle='--',
+                  linewidth=2, alpha=0.9, label='Segment boundaries',
+                  transform=trans)
+
+        ax.legend()
+
+        ax.set(title='Power spectrogram')
+        print("Ploted")
+        canvas.canvas.draw()

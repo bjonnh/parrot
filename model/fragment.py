@@ -3,22 +3,23 @@ import numpy as np
 
 
 class ParrotFragment:
-    def __init__(self, uid, data, name, sr, container):
-        self.data = data
-        self.parameters = {"name": name, "sample_rate": sr, "uid": uid, "container": container}
+    def __init__(self, uid, data, begin, end, name, sr, container):
+        if data is not None:
+            self.data = data[begin:end]
+        self.parameters = {"name": name,
+                           "sample_rate": sr,
+                           "uid": uid,
+                           "container": container,
+                           "begin": begin,
+                           "end": end}
 
     @staticmethod
     def from_parameters(parameters):
-        si = ParrotFragment(parameters["uid"], None, parameters["name"], parameters["sample_rate"],
+        si = ParrotFragment(parameters["uid"], None, None, None, parameters["name"], parameters["sample_rate"],
                             parameters["container"])
-        si.parameters["samples"] = parameters["samples"]
+        si.parameters.update(parameters)
+
         si.parameters["loaded"] = True
-        si.parameters["name"] = parameters["name"]
-        si.parameters["file_name"] = parameters["file_name"]
-        si.parameters["bandwidth_average"] = parameters["bandwidth_average"]
-        si.parameters["spectral_contrast"] = parameters["spectral_contrast"]
-        si.parameters["spectral_flatness"] = parameters["spectral_flatness"]
-        si.parameters["centroid_average"] = parameters["centroid_average"]
         return si
 
     @property
